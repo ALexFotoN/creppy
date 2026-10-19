@@ -10,62 +10,52 @@ public class PlayerAttack : MonoBehaviour
         AssaultRifle
     }
 
-    [SerializeField] private WeaponType weapon = WeaponType.Knife;
+    [System.Serializable]
+    public class WeaponData
+    {
+        public WeaponType type;
+        public float range;
+        public float damage;
+    }
 
-    [Header("Range")]
-    [SerializeField] private float knifeRange = 1.5f;
-    [SerializeField] private float pistolRange = 20f;
-    [SerializeField] private float sniperRange = 100f;
-    [SerializeField] private float assaultRifleRange = 40f;
-
-    [Header("Damage")]
-    [SerializeField] private float knifeDamage = 25f;
-    [SerializeField] private float pistolDamage = 15f;
-    [SerializeField] private float sniperDamage = 80f;
-    [SerializeField] private float assaultRifleDamage = 20f;
+    [Header("Weapon is in inventory")]
+    [SerializeField]
+    private WeaponData[] weapons =
+    {
+        new WeaponData { type = WeaponType.Knife, range = 1.5f, damage = 25f },
+        new WeaponData { type = WeaponType.Pistol, range = 20f, damage = 15f },
+        new WeaponData { type = WeaponType.SniperRifle, range = 100f, damage = 80f },
+        new WeaponData { type = WeaponType.AssaultRifle, range = 40f, damage = 20f }
+    };
 
     [SerializeField] private LayerMask enemyLayers;
 
+    private int currentWeaponIndex;
+
     private void Update()
     {
+        if (weapons == null || weapons.Length == 0) return;
+
+        float scroll = Input.GetAxis("Mouse ScrollWheel");
+
+        if (scroll > 0f)
+            currentWeaponIndex = (currentWeaponIndex + 1) % weapons.Length;
+        else if (scroll < 0f)
+            currentWeaponIndex = (currentWeaponIndex - 1 + weapons.Length) % weapons.Length;
+
         if (Input.GetMouseButtonDown(0))
             Attack();
     }
 
     private void Attack()
     {
-        float range;
-        float damage;
+        if (weapons == null || weapons.Length == 0) return;
 
-        switch (weapon)
-        {
-            case WeaponType.Knife:
-                range = knifeRange;
-                damage = knifeDamage;
-                break;
-
-            case WeaponType.Pistol:
-                range = pistolRange;
-                damage = pistolDamage;
-                break;
-
-            case WeaponType.SniperRifle:
-                range = sniperRange;
-                damage = sniperDamage;
-                break;
-
-            case WeaponType.AssaultRifle:
-                range = assaultRifleRange;
-                damage = assaultRifleDamage;
-                break;
-
-            default:
-                return;
-        }
+        WeaponData weapon = weapons[currentWeaponIndex];
 
         Collider[] hits = Physics.OverlapSphere(
             transform.position,
-            range,
+            weapon.range,
             enemyLayers
         );
 
@@ -77,10 +67,7 @@ public class PlayerAttack : MonoBehaviour
             EnemyHealth enemy = hit.GetComponentInParent<EnemyHealth>();
             if (enemy == null) continue;
 
-            float distance = Vector3.Distance(
-                transform.position,
-                enemy.transform.position
-            );
+            float distance = Vector3.Distance(transform.position, enemy.transform.position);
 
             if (distance < closestDistance)
             {
@@ -90,6 +77,6 @@ public class PlayerAttack : MonoBehaviour
         }
 
         if (closestEnemy != null)
-            closestEnemy.TakeDamage(damage);
+            closestEnemy.TakeDamage(weapon.damage);
     }
 }
