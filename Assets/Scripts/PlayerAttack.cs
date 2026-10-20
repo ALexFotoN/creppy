@@ -1,4 +1,5 @@
-﻿using UnityEngine;
+﻿using System.Collections.Generic;
+using UnityEngine;
 
 public class PlayerAttack : MonoBehaviour
 {
@@ -18,9 +19,9 @@ public class PlayerAttack : MonoBehaviour
         public float damage;
     }
 
-    [Header("Weapon is in inventory")]
+    [Header("Weapon chars")]
     [SerializeField]
-    private WeaponData[] weapons =
+    private WeaponData[] weaponDefinitions =
     {
         new WeaponData { type = WeaponType.Knife, range = 1.5f, damage = 25f },
         new WeaponData { type = WeaponType.Pistol, range = 20f, damage = 15f },
@@ -30,28 +31,57 @@ public class PlayerAttack : MonoBehaviour
 
     [SerializeField] private LayerMask enemyLayers;
 
+    private readonly List<WeaponData> inventory = new List<WeaponData>();
     private int currentWeaponIndex;
 
     private void Update()
     {
-        if (weapons == null || weapons.Length == 0) return;
+        if (inventory.Count == 0) return;
 
         float scroll = Input.GetAxis("Mouse ScrollWheel");
 
         if (scroll > 0f)
-            currentWeaponIndex = (currentWeaponIndex + 1) % weapons.Length;
+            currentWeaponIndex = (currentWeaponIndex + 1) % inventory.Count;
         else if (scroll < 0f)
-            currentWeaponIndex = (currentWeaponIndex - 1 + weapons.Length) % weapons.Length;
+            currentWeaponIndex = (currentWeaponIndex - 1 + inventory.Count) % inventory.Count;
 
         if (Input.GetMouseButtonDown(0))
             Attack();
     }
 
+    public bool HasWeapon(WeaponType type)
+    {
+        return inventory.Exists(weapon => weapon.type == type);
+    }
+
+    public bool AddWeapon(WeaponType type)
+    {
+        if (HasWeapon(type)) return false;
+
+        foreach (WeaponData definition in weaponDefinitions)
+        {
+            if (definition.type == type)
+            {
+                inventory.Add(new WeaponData
+                {
+                    type = definition.type,
+                    range = definition.range,
+                    damage = definition.damage
+                });
+
+                currentWeaponIndex = inventory.Count - 1;
+                Debug.Log($"Picked weapon: {type}");
+                return true;
+            }
+        }
+
+        Debug.LogWarning($"Didn't get weapon chars: {type}");
+        return false;
+    }
+
     private void Attack()
     {
-        if (weapons == null || weapons.Length == 0) return;
-
-        WeaponData weapon = weapons[currentWeaponIndex];
+        WeaponData weapon = inventory[currentWeaponIndex];
 
         Collider[] hits = Physics.OverlapSphere(
             transform.position,
