@@ -41,44 +41,66 @@ public class EnemyAI : MonoBehaviour
 
     private void Update()
     {
-        if (target == null || agent == null) return;
+        bool canSeeTarget = CanSeeTarget();
 
-        if (CurrentState == State.Hurt)
+        if (IsSeeingPlayer != canSeeTarget)
         {
-            hurtTimer -= Time.deltaTime;
-
-            if (hurtTimer <= 0f)
-                UpdateStateByDistance();
-
-            UpdateAnimator();
-            return;
+            IsSeeingPlayer = canSeeTarget;
+            CombatMusicManager.SetEnemyAlert(this, canSeeTarget);
         }
 
-        float distance = Vector3.Distance(transform.position, target.position);
-
-        if (distance > detectionDistance)
+        if (!canSeeTarget)
         {
             SetState(State.Idle);
             agent.isStopped = true;
         }
-        else if (distance <= attackDistance)
-        {
-            agent.isStopped = true;
-            FaceTarget();
-
-            if (Time.time >= nextAttackTime)
-                Attack();
-            else
-                SetState(State.Attacking);
-        }
         else
         {
-            SetState(State.Walking);
-            agent.isStopped = false;
-            agent.SetDestination(target.position);
+            float distance = Vector3.Distance(transform.position, target.position);
+
+            if (distance <= attackDistance)
+            {
+                agent.isStopped = true;
+                FaceTarget();
+
+                if (Time.time >= nextAttackTime)
+                    Attack();
+                else
+                    SetState(State.Attacking);
+            }
+            else
+            {
+                SetState(State.Walking);
+                agent.isStopped = false;
+                agent.SetDestination(target.position);
+            }
         }
 
+
         UpdateAnimator();
+    }
+
+    public bool IsSeeingPlayer { get; private set; }
+
+    private bool CanSeeTarget()
+    {
+        Vector3 origin = transform.position + Vector3.up;
+        Vector3 destination = target.position + Vector3.up;
+
+        if (Vector3.Distance(origin, destination) > detectionDistance)
+            return false;
+
+        Vector3 direction = destination - origin;
+
+        if (Physics.Raycast(origin, direction.normalized, out RaycastHit hit, detectionDistance))
+            return hit.transform == target || hit.transform.IsChildOf(target);
+
+        return false;
+    }
+
+    private void OnDisable()
+    {
+        CombatMusicManager.SetEnemyAlert(this, false);
     }
 
     private void UpdateStateByDistance()

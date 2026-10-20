@@ -13,8 +13,8 @@ public class SettingsMenu : MonoBehaviour
         {
             volumeSlider.minValue = 0f;
             volumeSlider.maxValue = 1f;
-            volumeSlider.SetValueWithoutNotify(MusicVolumeController.GetMusicVolume());
-            volumeSlider.onValueChanged.AddListener(MusicVolumeController.SetMusicVolume);
+            volumeSlider.SetValueWithoutNotify(CombatMusicManager.GetMusicVolume());
+            volumeSlider.onValueChanged.AddListener(CombatMusicManager.SetMusicVolume);
         }
 
         if (difficultyDropdown != null)
