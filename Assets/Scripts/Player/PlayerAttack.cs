@@ -15,23 +15,20 @@ public class PlayerAttack : MonoBehaviour
     public class WeaponData
     {
         public WeaponType type;
-        public float range;
-        public float damage;
+        public float range = 20f;
+        public float damage = 15f;
+        public GameObject handPrefab;
     }
 
-    [Header("Weapon chars")]
-    [SerializeField]
-    private WeaponData[] weaponDefinitions =
-    {
-        new WeaponData { type = WeaponType.Knife, range = 1.5f, damage = 25f },
-        new WeaponData { type = WeaponType.Pistol, range = 20f, damage = 15f },
-        new WeaponData { type = WeaponType.SniperRifle, range = 100f, damage = 80f },
-        new WeaponData { type = WeaponType.AssaultRifle, range = 40f, damage = 20f }
-    };
-
+    [Header("Settings")]
+    [SerializeField] private WeaponData[] weaponDefinitions;
+    [SerializeField] private Transform handSlot;
+    [SerializeField] private Camera playerCamera;
     [SerializeField] private LayerMask enemyLayers;
+    [SerializeField] private float knifeRange = 1.5f;
 
-    private readonly List<WeaponData> inventory = new List<WeaponData>();
+    private readonly List<WeaponData> inventory = new();
+    private GameObject heldWeapon;
     private int currentWeaponIndex;
 
     private void Update()
@@ -44,6 +41,9 @@ public class PlayerAttack : MonoBehaviour
             currentWeaponIndex = (currentWeaponIndex + 1) % inventory.Count;
         else if (scroll < 0f)
             currentWeaponIndex = (currentWeaponIndex - 1 + inventory.Count) % inventory.Count;
+
+        if (scroll != 0f)
+            ShowCurrentWeapon();
 
         if (Input.GetMouseButtonDown(0))
             Attack();
@@ -60,53 +60,73 @@ public class PlayerAttack : MonoBehaviour
 
         foreach (WeaponData definition in weaponDefinitions)
         {
-            if (definition.type == type)
-            {
-                inventory.Add(new WeaponData
-                {
-                    type = definition.type,
-                    range = definition.range,
-                    damage = definition.damage
-                });
+            if (definition.type != type) continue;
 
-                currentWeaponIndex = inventory.Count - 1;
-                Debug.Log($"Picked weapon: {type}");
-                return true;
-            }
+            inventory.Add(definition);
+            currentWeaponIndex = inventory.Count - 1;
+            ShowCurrentWeapon();
+            return true;
         }
 
-        Debug.LogWarning($"Didn't get weapon chars: {type}");
+        Debug.LogWarning($"No weapon settings: {type}");
         return false;
+    }
+
+    private void ShowCurrentWeapon()
+    {
+        if (heldWeapon != null)
+            Destroy(heldWeapon);
+
+        WeaponData weapon = inventory[currentWeaponIndex];
+
+        if (handSlot == null || weapon.handPrefab == null)
+        {
+            Debug.LogWarning($"Define Weapon Slot and Prefab of a weapon for {weapon.type}");
+            return;
+        }
+
+        heldWeapon = Instantiate(weapon.handPrefab, handSlot);
+        heldWeapon.transform.localPosition = Vector3.zero;
+        heldWeapon.transform.localRotation = Quaternion.identity;
+        heldWeapon.transform.localScale = Vector3.one;
     }
 
     private void Attack()
     {
         WeaponData weapon = inventory[currentWeaponIndex];
 
-        Collider[] hits = Physics.OverlapSphere(
-            transform.position,
-            weapon.range,
-            enemyLayers
-        );
-
-        EnemyHealth closestEnemy = null;
-        float closestDistance = float.MaxValue;
-
-        foreach (Collider hit in hits)
+        if (weapon.type == WeaponType.Knife)
         {
-            EnemyHealth enemy = hit.GetComponentInParent<EnemyHealth>();
-            if (enemy == null) continue;
-
-            float distance = Vector3.Distance(transform.position, enemy.transform.position);
-
-            if (distance < closestDistance)
+            if (Physics.SphereCast(
+                playerCamera.transform.position,
+                0.25f,
+                playerCamera.transform.forward,
+                out RaycastHit hit,
+                knifeRange,
+                enemyLayers))
             {
-                closestDistance = distance;
-                closestEnemy = enemy;
+                DamageEnemy(hit.collider, weapon.damage);
             }
+
+            return;
         }
 
-        if (closestEnemy != null)
-            closestEnemy.TakeDamage(weapon.damage);
+        if (Physics.Raycast(
+            playerCamera.transform.position,
+            playerCamera.transform.forward,
+            out RaycastHit shot,
+            weapon.range,
+            enemyLayers))
+        {
+            DamageEnemy(shot.collider, weapon.damage);
+        }
+    }
+
+    private void DamageEnemy(Collider hitCollider, float damage)
+    {
+        EnemyHealth enemy = hitCollider.GetComponentInParent<EnemyHealth>();
+
+        if (enemy != null)
+            enemy.TakeDamage(damage);
     }
 }
